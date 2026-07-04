@@ -5,9 +5,11 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
+import { useApp } from '@/context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { restoreFromCloud } from '@/utils/cloudSync';
 
 export default function AuthScreen() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
@@ -17,8 +19,26 @@ export default function AuthScreen() {
   const [semester, setSemester] = useState('1');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, signup } = useAuth();
+  const { login, signup, getPasswordHash } = useAuth();
+  const { restoreFromBackup, isDataLoaded } = useApp();
   const insets = useSafeAreaInsets();
+
+  const attemptCloudRestore = async (emailArg: string) => {
+    try {
+      const hash = await getPasswordHash();
+      if (!hash) return;
+      // Wait for local data to load first so cloud doesn't lose to the local hydration race
+      if (!isDataLoaded) {
+        await new Promise<void>(resolve => setTimeout(resolve, 300));
+      }
+      const cloudData = await restoreFromCloud(emailArg, hash);
+      if (cloudData) {
+        await restoreFromBackup(cloudData);
+      }
+    } catch {
+      // Silent failure — cloud restore is best-effort
+    }
+  };
 
   const submit = async () => {
     if (!email.trim()) { Alert.alert('Enter your email'); return; }
@@ -30,10 +50,12 @@ export default function AuthScreen() {
       if (mode === 'login') {
         await login(email.trim(), password);
       } else {
-        await signup(name.trim(), email.trim(), college.trim(), parseInt(semester, 10) || 1);
+        await signup(name.trim(), email.trim(), password, college.trim(), parseInt(semester, 10) || 1);
       }
+      // Try to restore from cloud (non-blocking — navigate first, restore runs in background)
+      attemptCloudRestore(email.trim()).catch(() => {});
       router.replace('/(tabs)');
-    } catch (e) {
+    } catch {
       Alert.alert('Error', 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
@@ -58,9 +80,7 @@ export default function AuthScreen() {
 
         <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.card}>
           {mode === 'signup' && (
-            <>
-              <InputField label="Full Name" value={name} onChangeText={setName} placeholder="Alex Johnson" />
-            </>
+            <InputField label="Full Name" value={name} onChangeText={setName} placeholder="Alex Johnson" />
           )}
           <InputField label="Email" value={email} onChangeText={setEmail} placeholder="you@university.edu" keyboardType="email-address" />
           <InputField label="Password" value={password} onChangeText={setPassword} placeholder="••••••••" secureTextEntry />
@@ -79,6 +99,12 @@ export default function AuthScreen() {
           >
             <Text style={styles.btnText}>{loading ? 'Please wait…' : mode === 'login' ? 'Sign In' : 'Create Account'}</Text>
           </TouchableOpacity>
+
+          {mode === 'login' && (
+            <Text style={styles.restoreHint}>
+              🔄 Your data is automatically restored from your last backup.
+            </Text>
+          )}
         </Animated.View>
 
         <TouchableOpacity onPress={() => setMode(m => m === 'login' ? 'signup' : 'login')} style={styles.toggleBtn}>
@@ -147,6 +173,10 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   btnText: { color: '#fff', fontSize: 16, fontFamily: 'Nunito_700Bold' },
+  restoreHint: {
+    fontSize: 12, fontFamily: 'Inter_400Regular', color: '#9CA3AF',
+    textAlign: 'center', marginTop: -4,
+  },
   toggleBtn: { alignItems: 'center', paddingVertical: 8 },
   toggleText: { fontSize: 14, fontFamily: 'Inter_400Regular', color: '#9CA3AF' },
   toggleLink: { color: '#FF6B6B', fontFamily: 'Inter_600SemiBold' },

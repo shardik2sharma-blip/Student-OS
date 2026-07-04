@@ -1,13 +1,27 @@
 import React from 'react';
-import { Platform, StyleSheet, useColorScheme, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Redirect, Tabs } from 'expo-router';
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
-import { SymbolView } from 'expo-symbols';
 import { useAuth } from '@/context/AuthContext';
+
+const isIOS = Platform.OS === 'ios';
+
+function TabIcon({ name, color, focused }: { name: React.ComponentProps<typeof Feather>['name']; color: string; focused: boolean }) {
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center', width: 28, height: 28 }}>
+      <Feather name={name} size={22} color={color} />
+      {focused && (
+        <View style={{
+          position: 'absolute', bottom: -6, width: 4, height: 4,
+          borderRadius: 2, backgroundColor: color,
+        }} />
+      )}
+    </View>
+  );
+}
 
 function NativeTabLayout() {
   return (
@@ -34,92 +48,61 @@ function NativeTabLayout() {
 
 function ClassicTabLayout() {
   const colors = useColors();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const isIOS = Platform.OS === 'ios';
-  const isWeb = Platform.OS === 'web';
 
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.tabIconDefault,
-        headerShown: true,
-        headerStyle: { backgroundColor: colors.background },
-        headerTintColor: colors.text,
-        headerTitleStyle: { fontFamily: 'Nunito_700Bold', fontSize: 20 },
-        headerShadowVisible: false,
+        headerShown: false,
         tabBarStyle: {
-          position: 'absolute',
-          backgroundColor: isIOS ? 'transparent' : colors.background,
-          borderTopWidth: isWeb ? 1 : 0,
+          backgroundColor: colors.background,
+          borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.border,
           elevation: 0,
-          ...(isWeb ? { height: 84 } : {}),
+          shadowColor: 'transparent',
+          height: isIOS ? 83 : 64,
+          paddingBottom: isIOS ? 28 : 10,
+          paddingTop: 6,
         },
         tabBarLabelStyle: {
           fontFamily: 'Inter_500Medium',
           fontSize: 11,
-          marginBottom: isWeb ? 10 : 0,
+          marginTop: 2,
         },
-        tabBarBackground: () =>
-          isIOS ? (
-            <BlurView
-              intensity={100}
-              tint={isDark ? 'dark' : 'light'}
-              style={StyleSheet.absoluteFill}
-            />
-          ) : isWeb ? (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]} />
-          ) : null,
+        tabBarItemStyle: {
+          alignItems: 'center',
+          justifyContent: 'center',
+          flex: 1,
+        },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="house" tintColor={color} size={24} />
-            ) : (
-              <Feather name="home" size={22} color={color} />
-            ),
+          tabBarIcon: ({ color, focused }) => <TabIcon name="home" color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="academic"
         options={{
           title: 'Academic',
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="book" tintColor={color} size={24} />
-            ) : (
-              <Feather name="book-open" size={22} color={color} />
-            ),
+          tabBarIcon: ({ color, focused }) => <TabIcon name="book-open" color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="personal"
         options={{
           title: 'Personal',
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="leaf" tintColor={color} size={24} />
-            ) : (
-              <Feather name="star" size={22} color={color} />
-            ),
+          tabBarIcon: ({ color, focused }) => <TabIcon name="star" color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="person" tintColor={color} size={24} />
-            ) : (
-              <Feather name="user" size={22} color={color} />
-            ),
+          tabBarIcon: ({ color, focused }) => <TabIcon name="user" color={color} focused={focused} />,
         }}
       />
     </Tabs>

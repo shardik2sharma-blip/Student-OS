@@ -6,7 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/context/AuthContext';
-import { useApp, type TimetableSlot, type Assignment, type Subject } from '@/context/AppContext';
+import { useApp, type Assignment, type Subject } from '@/context/AppContext';
 import { getDailyQuote } from '@/constants/quotes';
 import ProgressRing from '@/components/ProgressRing';
 import * as Haptics from 'expo-haptics';
@@ -22,7 +22,10 @@ export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { subjects, assignments, timetable, habits, habitLogs, todos, toggleHabitLog } = useApp();
+  const {
+    subjects, assignments, timetable, habits, habitLogs, todos,
+    skills, toggleHabitLog,
+  } = useApp();
   const [now, setNow] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
 
@@ -32,7 +35,8 @@ export default function HomeScreen() {
   }, []);
 
   const todayDay = DAYS[now.getDay()];
-  const todaySlots = timetable.filter(s => s.day === todayDay)
+  const todaySlots = timetable
+    .filter(s => s.day === todayDay)
     .sort((a, b) => toMinutes(a.startTime) - toMinutes(b.startTime));
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const remainingSlots = todaySlots.filter(s => toMinutes(s.endTime) > nowMin);
@@ -59,9 +63,14 @@ export default function HomeScreen() {
     return h.targetDays.includes(dayShort);
   });
 
-  const totalTasks = todos.filter(t => !t.isCompleted).length + todayHabits.length;
-  const completedTasks = todayHabits.filter(h => habitLogs.some(l => l.habitId === h.id && l.date === todayStr && l.completed)).length;
-  const weekProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const openTodos = todos.filter(t => !t.isCompleted);
+  const totalTasks = openTodos.length + todayHabits.length;
+  const completedHabitsToday = todayHabits.filter(
+    h => habitLogs.some(l => l.habitId === h.id && l.date === todayStr && l.completed)
+  ).length;
+  const weekProgress = totalTasks > 0 ? Math.round((completedHabitsToday / totalTasks) * 100) : 0;
+
+  const topSkills = [...skills].sort((a, b) => b.level - a.level).slice(0, 3);
 
   const getGreeting = () => {
     const h = now.getHours();
@@ -89,15 +98,17 @@ export default function HomeScreen() {
     setTimeout(() => setRefreshing(false), 500);
   }, []);
 
+  const tabBarOffset = Platform.OS === 'ios' ? 83 : 64;
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + tabBarOffset + 24 }]}
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
     >
       {/* Greeting Header */}
-      <View style={[styles.header, { paddingTop: Platform.OS === 'web' ? 74 : 16 }]}>
+      <View style={styles.header}>
         <View style={[styles.headerBg, { backgroundColor: colors.primaryLight }]} />
         <Text style={[styles.greeting, { color: colors.textMuted }]}>{getGreeting()}, ☀️</Text>
         <Text style={[styles.userName, { color: colors.text }]}>{user?.name || 'Student'}!</Text>
@@ -109,7 +120,7 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Today & Remaining Classes */}
+      {/* Today's Classes */}
       <Section title="Today's Classes" badge={`${remainingSlots.length} remaining`} badgeColor={colors.academic}>
         {todaySlots.length === 0 ? (
           <View style={[styles.emptyBox, { backgroundColor: colors.card }]}>
@@ -133,7 +144,7 @@ export default function HomeScreen() {
                       {isPast && <Text style={[styles.doneMark, { color: colors.safe }]}>✓</Text>}
                     </View>
                     <Text style={[styles.classMeta, { color: colors.textMuted }]}>
-                      {slot.startTime} – {slot.endTime} {slot.room ? `· ${slot.room}` : ''}
+                      {slot.startTime} – {slot.endTime}{slot.room ? ` · ${slot.room}` : ''}
                     </Text>
                   </View>
                 </View>
@@ -232,20 +243,72 @@ export default function HomeScreen() {
       )}
 
       {/* Weekly Progress */}
-      <Section title="Weekly Progress">
+      <Section title="Daily Progress">
         <View style={[styles.progressCard, { backgroundColor: colors.card }]}>
-          <ProgressRing progress={weekProgress} size={90} color={colors.primary} />
+          <ProgressRing progress={weekProgress} size={88} strokeWidth={8} color={colors.primary} />
           <View style={styles.progressInfo}>
             <Text style={[styles.progressTitle, { color: colors.text }]}>Tasks Completed</Text>
             <Text style={[styles.progressSub, { color: colors.textSecondary }]}>
-              {completedTasks} of {totalTasks} tasks done today
+              {completedHabitsToday} of {totalTasks} tasks done today
             </Text>
-            {weekProgress === 100 && (
+            {weekProgress === 100 && totalTasks > 0 && (
               <Text style={[styles.progressCelebrate, { color: colors.safe }]}>Amazing! 🎉</Text>
+            )}
+            {totalTasks === 0 && (
+              <Text style={[styles.progressSub, { color: colors.textMuted }]}>Add habits or to-dos to track progress</Text>
             )}
           </View>
         </View>
       </Section>
+
+      {/* Active Skills */}
+      {topSkills.length > 0 && (
+        <Section title="Active Skills">
+          <View style={styles.list}>
+            {topSkills.map(s => {
+              const pct = s.targetLevel > 0 ? Math.min(100, Math.round((s.level / s.targetLevel) * 100)) : s.level;
+              return (
+                <View key={s.id} style={[styles.skillRow, { backgroundColor: colors.card }]}>
+                  <Text style={styles.skillEmoji}>{s.icon}</Text>
+                  <View style={{ flex: 1, gap: 6 }}>
+                    <View style={styles.skillTop}>
+                      <Text style={[styles.skillName, { color: colors.text }]}>{s.name}</Text>
+                      <Text style={[styles.skillLvl, { color: colors.personal }]}>Lv {s.level}</Text>
+                    </View>
+                    <View style={[styles.skillTrack, { backgroundColor: colors.border }]}>
+                      <View style={[styles.skillFill, { backgroundColor: colors.personal, width: `${pct}%` as any }]} />
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </Section>
+      )}
+
+      {/* Open To-Dos */}
+      {openTodos.length > 0 && (
+        <Section title="Open To-Dos" badge={`${openTodos.length} left`} badgeColor={colors.primary}>
+          <View style={styles.list}>
+            {openTodos.slice(0, 5).map(t => {
+              const pColor = t.priority === 'high' ? colors.critical : t.priority === 'medium' ? colors.warning : colors.textMuted;
+              const doneSubs = t.subTasks.filter(s => s.isDone).length;
+              return (
+                <View key={t.id} style={[styles.todoRow, { backgroundColor: colors.card }]}>
+                  <View style={[styles.todoDot, { backgroundColor: pColor }]} />
+                  <Text style={[styles.todoTitle, { color: colors.text }]} numberOfLines={1}>{t.title}</Text>
+                  {t.subTasks.length > 0 && (
+                    <Text style={[styles.todoSubs, { color: colors.textMuted }]}>{doneSubs}/{t.subTasks.length}</Text>
+                  )}
+                </View>
+              );
+            })}
+            {openTodos.length > 5 && (
+              <Text style={[styles.moreText, { color: colors.textMuted }]}>+{openTodos.length - 5} more in Personal tab</Text>
+            )}
+          </View>
+        </Section>
+      )}
 
       {/* Upcoming Deadlines */}
       {upcomingDeadlines.length > 0 && (
@@ -271,7 +334,7 @@ export default function HomeScreen() {
 }
 
 function Section({ title, badge, badgeColor, children }: {
-  title: string; badge?: string; badgeColor?: string; children: React.ReactNode
+  title: string; badge?: string; badgeColor?: string; children: React.ReactNode;
 }) {
   const colors = useColors();
   return (
@@ -291,8 +354,8 @@ function Section({ title, badge, badgeColor, children }: {
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: 16, gap: 8 },
-  header: { paddingHorizontal: 4, paddingBottom: 16, gap: 4, position: 'relative', overflow: 'hidden' },
-  headerBg: { position: 'absolute', top: -60, right: -60, width: 200, height: 200, borderRadius: 100, opacity: 0.4 },
+  header: { paddingBottom: 16, gap: 4, position: 'relative', overflow: 'hidden' },
+  headerBg: { position: 'absolute', top: -60, right: -60, width: 200, height: 200, borderRadius: 100, opacity: 0.35 },
   greeting: { fontSize: 14, fontFamily: 'Inter_400Regular' },
   userName: { fontSize: 28, fontFamily: 'Nunito_700Bold', letterSpacing: -0.5 },
   date: { fontSize: 13, fontFamily: 'Inter_400Regular', marginBottom: 8 },
@@ -316,8 +379,8 @@ const styles = StyleSheet.create({
     borderRadius: 16, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3,
   },
-  classRow: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#F0EBE3' },
-  classAccent: { width: 4, height: '100%', borderRadius: 2, minHeight: 40 },
+  classRow: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
+  classAccent: { width: 4, height: 40, borderRadius: 2 },
   classInfo: { flex: 1, gap: 2 },
   classTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   className: { fontSize: 15, fontFamily: 'Inter_500Medium', flex: 1 },
@@ -350,14 +413,40 @@ const styles = StyleSheet.create({
   habitName: { flex: 1, fontSize: 14, fontFamily: 'Inter_500Medium' },
   catPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   catLabel: { fontSize: 11, fontFamily: 'Inter_500Medium', textTransform: 'capitalize' },
+
+  // Progress ring card — self-contained, no overflow
   progressCard: {
     borderRadius: 20, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 20,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3,
   },
-  progressInfo: { flex: 1, gap: 4 },
+  progressInfo: { flex: 1, gap: 4, flexShrink: 1 },
   progressTitle: { fontSize: 16, fontFamily: 'Nunito_700Bold' },
-  progressSub: { fontSize: 13, fontFamily: 'Inter_400Regular' },
+  progressSub: { fontSize: 13, fontFamily: 'Inter_400Regular', lineHeight: 18 },
   progressCelebrate: { fontSize: 14, fontFamily: 'Inter_600SemiBold', marginTop: 4 },
+
+  // Skills
+  skillRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2,
+  },
+  skillEmoji: { fontSize: 22, width: 30, textAlign: 'center' },
+  skillTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  skillName: { fontSize: 14, fontFamily: 'Inter_500Medium', flex: 1 },
+  skillLvl: { fontSize: 13, fontFamily: 'Nunito_700Bold' },
+  skillTrack: { height: 6, borderRadius: 3, overflow: 'hidden' },
+  skillFill: { height: 6, borderRadius: 3 },
+
+  // To-Dos
+  todoRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2,
+  },
+  todoDot: { width: 9, height: 9, borderRadius: 4.5, flexShrink: 0 },
+  todoTitle: { flex: 1, fontSize: 14, fontFamily: 'Inter_500Medium' },
+  todoSubs: { fontSize: 12, fontFamily: 'Inter_400Regular' },
+  moreText: { fontSize: 12, fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 2 },
+
+  // Deadline
   deadlineRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, padding: 14,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2,

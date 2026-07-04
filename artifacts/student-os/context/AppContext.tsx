@@ -1,99 +1,50 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { getItem, setItem, generateId } from '@/storage/storage';
+import { syncToCloud, restoreFromCloud, type BackupPayload } from '@/utils/cloudSync';
 
 export type Subject = {
-  id: string;
-  name: string;
-  code: string;
-  color: string;
-  minAttendance: number;
-  totalClasses: number;
-  attendedClasses: number;
-  credits: number;
+  id: string; name: string; code: string; color: string;
+  minAttendance: number; totalClasses: number; attendedClasses: number; credits: number;
 };
-
 export type AttendanceRecord = {
-  id: string;
-  subjectId: string;
-  date: string;
-  status: 'present' | 'absent' | 'cancelled';
-  note: string;
+  id: string; subjectId: string; date: string;
+  status: 'present' | 'absent' | 'cancelled'; note: string;
 };
-
 export type Assignment = {
-  id: string;
-  title: string;
-  subjectId: string;
-  description: string;
-  deadline: string;
-  priority: 'high' | 'medium' | 'low';
+  id: string; title: string; subjectId: string; description: string;
+  deadline: string; priority: 'high' | 'medium' | 'low';
   status: 'todo' | 'inprogress' | 'submitted' | 'missed' | 'graded';
-  marks?: number;
-  totalMarks?: number;
-  createdAt: string;
+  marks?: number; totalMarks?: number; createdAt: string;
 };
-
 export type TimetableSlot = {
-  id: string;
-  subjectId: string;
-  subjectName: string;
-  day: string;
-  startTime: string;
-  endTime: string;
-  room: string;
-  teacher: string;
+  id: string; subjectId: string; subjectName: string;
+  day: string; startTime: string; endTime: string; room: string; teacher: string;
 };
-
 export type Habit = {
-  id: string;
-  name: string;
-  icon: string;
+  id: string; name: string; icon: string;
   category: 'health' | 'study' | 'social' | 'mindfulness' | 'other';
-  frequency: 'daily' | 'weekly';
-  targetDays: string[];
-  currentStreak: number;
-  longestStreak: number;
-  createdAt: string;
+  frequency: 'daily' | 'weekly'; targetDays: string[];
+  currentStreak: number; longestStreak: number; createdAt: string;
 };
-
 export type HabitLog = {
-  id: string;
-  habitId: string;
-  date: string;
-  completed: boolean;
-  note: string;
+  id: string; habitId: string; date: string; completed: boolean; note: string;
 };
-
 export type Skill = {
-  id: string;
-  name: string;
-  icon: string;
-  level: number;
-  targetLevel: number;
-  totalTimeSpent: number;
-  createdAt: string;
+  id: string; name: string; icon: string;
+  level: number; targetLevel: number; totalTimeSpent: number; createdAt: string;
 };
-
 export type Todo = {
-  id: string;
-  title: string;
-  isCompleted: boolean;
-  priority: 'high' | 'medium' | 'low';
-  dueDate?: string;
+  id: string; title: string; isCompleted: boolean;
+  priority: 'high' | 'medium' | 'low'; dueDate?: string;
   subTasks: { id: string; title: string; isDone: boolean }[];
-  isRecurring: boolean;
-  createdAt: string;
+  isRecurring: boolean; createdAt: string;
 };
 
 type AppContextType = {
-  subjects: Subject[];
-  attendance: AttendanceRecord[];
-  assignments: Assignment[];
-  timetable: TimetableSlot[];
-  habits: Habit[];
-  habitLogs: HabitLog[];
-  skills: Skill[];
-  todos: Todo[];
+  subjects: Subject[]; attendance: AttendanceRecord[]; assignments: Assignment[];
+  timetable: TimetableSlot[]; habits: Habit[]; habitLogs: HabitLog[];
+  skills: Skill[]; todos: Todo[];
+  isDataLoaded: boolean;
 
   addSubject: (s: Omit<Subject, 'id'>) => void;
   removeSubject: (id: string) => void;
@@ -122,6 +73,11 @@ type AppContextType = {
   toggleTodo: (id: string) => void;
   toggleSubTask: (todoId: string, subTaskId: string) => void;
   removeTodo: (id: string) => void;
+
+  /** Restore all data from a cloud backup payload (called after login). */
+  restoreFromBackup: (payload: BackupPayload) => Promise<void>;
+  /** Trigger an immediate cloud sync. */
+  syncNow: () => Promise<void>;
 };
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -139,6 +95,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [habitLogs, setHabitLogs] = useState<HabitLog[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+
+  // Refs for debounced cloud sync (avoids stale closures)
+  const stateRef = useRef({ subjects, attendance, assignments, timetable, habits, habitLogs, skills, todos });
+  stateRef.current = { subjects, attendance, assignments, timetable, habits, habitLogs, skills, todos };
+  const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -152,222 +114,191 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         getItem<Skill[]>('skills', []),
         getItem<Todo[]>('todos', []),
       ]);
-      setSubjects(s);
-      setAttendance(a);
-      setAssignments(asgn);
-      setTimetable(tt);
-      setHabits(h);
-      setHabitLogs(hl);
-      setSkills(sk);
-      setTodos(td);
+      setSubjects(s); setAttendance(a); setAssignments(asgn); setTimetable(tt);
+      setHabits(h); setHabitLogs(hl); setSkills(sk); setTodos(td);
+      setIsDataLoaded(true);
     })();
   }, []);
 
-  // --- Subjects ---
+  const scheduleSync = useCallback(() => {
+    if (syncTimer.current) clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(async () => {
+      syncTimer.current = null;
+      const [user, hash] = await Promise.all([
+        getItem<{ email: string } | null>('auth_user', null),
+        getItem<string>('auth_password_hash', ''),
+      ]);
+      if (!user?.email || !hash) return;
+      const s = stateRef.current;
+      await syncToCloud(user.email, hash, {
+        subjects: s.subjects, attendance: s.attendance, assignments: s.assignments,
+        timetable: s.timetable, habits: s.habits, habitLogs: s.habitLogs,
+        skills: s.skills, todos: s.todos,
+      });
+    }, 4000);
+  }, []);
+
+  const syncNow = useCallback(async () => {
+    if (syncTimer.current) { clearTimeout(syncTimer.current); syncTimer.current = null; }
+    const [user, hash] = await Promise.all([
+      getItem<{ email: string } | null>('auth_user', null),
+      getItem<string>('auth_password_hash', ''),
+    ]);
+    if (!user?.email || !hash) return;
+    const s = stateRef.current;
+    await syncToCloud(user.email, hash, {
+      subjects: s.subjects, attendance: s.attendance, assignments: s.assignments,
+      timetable: s.timetable, habits: s.habits, habitLogs: s.habitLogs,
+      skills: s.skills, todos: s.todos,
+    });
+  }, []);
+
+  const restoreFromBackup = useCallback(async (payload: BackupPayload) => {
+    const s = payload.subjects as Subject[] ?? [];
+    const a = payload.attendance as AttendanceRecord[] ?? [];
+    const asgn = payload.assignments as Assignment[] ?? [];
+    const tt = payload.timetable as TimetableSlot[] ?? [];
+    const h = payload.habits as Habit[] ?? [];
+    const hl = payload.habitLogs as HabitLog[] ?? [];
+    const sk = payload.skills as Skill[] ?? [];
+    const td = payload.todos as Todo[] ?? [];
+
+    await Promise.all([
+      setItem('subjects', s), setItem('attendance', a), setItem('assignments', asgn),
+      setItem('timetable', tt), setItem('habits', h), setItem('habitLogs', hl),
+      setItem('skills', sk), setItem('todos', td),
+    ]);
+    setSubjects(s); setAttendance(a); setAssignments(asgn); setTimetable(tt);
+    setHabits(h); setHabitLogs(hl); setSkills(sk); setTodos(td);
+  }, []);
+
+  // ── Subjects ──────────────────────────────────────────────────────────────
   const addSubject = useCallback((s: Omit<Subject, 'id'>) => {
     const newS = { ...s, id: generateId() };
-    setSubjects(prev => {
-      const next = [...prev, newS];
-      setItem('subjects', next);
-      return next;
-    });
-  }, []);
+    setSubjects(prev => { const n = [...prev, newS]; setItem('subjects', n); scheduleSync(); return n; });
+  }, [scheduleSync]);
 
   const removeSubject = useCallback((id: string) => {
-    setSubjects(prev => {
-      const next = prev.filter(s => s.id !== id);
-      setItem('subjects', next);
-      return next;
-    });
-  }, []);
+    setSubjects(prev => { const n = prev.filter(s => s.id !== id); setItem('subjects', n); scheduleSync(); return n; });
+  }, [scheduleSync]);
 
   const updateSubject = useCallback((id: string, data: Partial<Subject>) => {
-    setSubjects(prev => {
-      const next = prev.map(s => s.id === id ? { ...s, ...data } : s);
-      setItem('subjects', next);
-      return next;
-    });
-  }, []);
+    setSubjects(prev => { const n = prev.map(s => s.id === id ? { ...s, ...data } : s); setItem('subjects', n); scheduleSync(); return n; });
+  }, [scheduleSync]);
 
-  // --- Attendance ---
+  // ── Attendance ────────────────────────────────────────────────────────────
   const addAttendance = useCallback((a: Omit<AttendanceRecord, 'id'>) => {
     const newA = { ...a, id: generateId() };
-    setAttendance(prev => {
-      const next = [...prev, newA];
-      setItem('attendance', next);
-      return next;
-    });
-    // Update subject counts
+    setAttendance(prev => { const n = [...prev, newA]; setItem('attendance', n); scheduleSync(); return n; });
     if (a.status !== 'cancelled') {
       setSubjects(prev => {
-        const next = prev.map(s => {
+        const n = prev.map(s => {
           if (s.id !== a.subjectId) return s;
-          return {
-            ...s,
-            totalClasses: s.totalClasses + 1,
-            attendedClasses: a.status === 'present' ? s.attendedClasses + 1 : s.attendedClasses,
-          };
+          return { ...s, totalClasses: s.totalClasses + 1, attendedClasses: a.status === 'present' ? s.attendedClasses + 1 : s.attendedClasses };
         });
-        setItem('subjects', next);
-        return next;
+        setItem('subjects', n);
+        return n;
       });
     }
-  }, []);
+  }, [scheduleSync]);
 
-  // --- Assignments ---
+  // ── Assignments ───────────────────────────────────────────────────────────
   const addAssignment = useCallback((a: Omit<Assignment, 'id' | 'createdAt'>) => {
     const newA = { ...a, id: generateId(), createdAt: new Date().toISOString() };
-    setAssignments(prev => {
-      const next = [...prev, newA];
-      setItem('assignments', next);
-      return next;
-    });
-  }, []);
+    setAssignments(prev => { const n = [...prev, newA]; setItem('assignments', n); scheduleSync(); return n; });
+  }, [scheduleSync]);
 
   const updateAssignment = useCallback((id: string, data: Partial<Assignment>) => {
-    setAssignments(prev => {
-      const next = prev.map(a => a.id === id ? { ...a, ...data } : a);
-      setItem('assignments', next);
-      return next;
-    });
-  }, []);
+    setAssignments(prev => { const n = prev.map(a => a.id === id ? { ...a, ...data } : a); setItem('assignments', n); scheduleSync(); return n; });
+  }, [scheduleSync]);
 
   const removeAssignment = useCallback((id: string) => {
-    setAssignments(prev => {
-      const next = prev.filter(a => a.id !== id);
-      setItem('assignments', next);
-      return next;
-    });
-  }, []);
+    setAssignments(prev => { const n = prev.filter(a => a.id !== id); setItem('assignments', n); scheduleSync(); return n; });
+  }, [scheduleSync]);
 
-  // --- Timetable ---
+  // ── Timetable ─────────────────────────────────────────────────────────────
   const addTimetableSlot = useCallback((s: Omit<TimetableSlot, 'id'>) => {
     const newS = { ...s, id: generateId() };
-    setTimetable(prev => {
-      const next = [...prev, newS];
-      setItem('timetable', next);
-      return next;
-    });
-  }, []);
+    setTimetable(prev => { const n = [...prev, newS]; setItem('timetable', n); scheduleSync(); return n; });
+  }, [scheduleSync]);
 
   const removeTimetableSlot = useCallback((id: string) => {
-    setTimetable(prev => {
-      const next = prev.filter(s => s.id !== id);
-      setItem('timetable', next);
-      return next;
-    });
-  }, []);
+    setTimetable(prev => { const n = prev.filter(s => s.id !== id); setItem('timetable', n); scheduleSync(); return n; });
+  }, [scheduleSync]);
 
-  // --- Habits ---
+  // ── Habits ────────────────────────────────────────────────────────────────
   const addHabit = useCallback((h: Omit<Habit, 'id' | 'currentStreak' | 'longestStreak' | 'createdAt'>) => {
     const newH: Habit = { ...h, id: generateId(), currentStreak: 0, longestStreak: 0, createdAt: new Date().toISOString() };
-    setHabits(prev => {
-      const next = [...prev, newH];
-      setItem('habits', next);
-      return next;
-    });
-  }, []);
+    setHabits(prev => { const n = [...prev, newH]; setItem('habits', n); scheduleSync(); return n; });
+  }, [scheduleSync]);
 
   const removeHabit = useCallback((id: string) => {
-    setHabits(prev => {
-      const next = prev.filter(h => h.id !== id);
-      setItem('habits', next);
-      return next;
-    });
-  }, []);
+    setHabits(prev => { const n = prev.filter(h => h.id !== id); setItem('habits', n); scheduleSync(); return n; });
+  }, [scheduleSync]);
 
   const toggleHabitLog = useCallback((habitId: string, date: string) => {
     setHabitLogs(prev => {
       const existing = prev.find(l => l.habitId === habitId && l.date === date);
-      let next: HabitLog[];
-      if (existing) {
-        next = prev.map(l => l.id === existing.id ? { ...l, completed: !l.completed } : l);
-      } else {
-        next = [...prev, { id: generateId(), habitId, date, completed: true, note: '' }];
-      }
-      setItem('habitLogs', next);
-      return next;
+      const n = existing
+        ? prev.map(l => l.id === existing.id ? { ...l, completed: !l.completed } : l)
+        : [...prev, { id: generateId(), habitId, date, completed: true, note: '' }];
+      setItem('habitLogs', n);
+      scheduleSync();
+      return n;
     });
-  }, []);
+  }, [scheduleSync]);
 
   const isHabitDoneToday = useCallback((habitId: string) => {
     const t = today();
     return habitLogs.some(l => l.habitId === habitId && l.date === t && l.completed);
   }, [habitLogs]);
 
-  const getHabitLogs = useCallback((habitId: string) => {
-    return habitLogs.filter(l => l.habitId === habitId);
-  }, [habitLogs]);
+  const getHabitLogs = useCallback((habitId: string) => habitLogs.filter(l => l.habitId === habitId), [habitLogs]);
 
-  // --- Skills ---
+  // ── Skills ────────────────────────────────────────────────────────────────
   const addSkill = useCallback((s: Omit<Skill, 'id' | 'createdAt'>) => {
     const newS: Skill = { ...s, id: generateId(), createdAt: new Date().toISOString() };
-    setSkills(prev => {
-      const next = [...prev, newS];
-      setItem('skills', next);
-      return next;
-    });
-  }, []);
+    setSkills(prev => { const n = [...prev, newS]; setItem('skills', n); scheduleSync(); return n; });
+  }, [scheduleSync]);
 
   const updateSkill = useCallback((id: string, data: Partial<Skill>) => {
-    setSkills(prev => {
-      const next = prev.map(s => s.id === id ? { ...s, ...data } : s);
-      setItem('skills', next);
-      return next;
-    });
-  }, []);
+    setSkills(prev => { const n = prev.map(s => s.id === id ? { ...s, ...data } : s); setItem('skills', n); scheduleSync(); return n; });
+  }, [scheduleSync]);
 
   const removeSkill = useCallback((id: string) => {
-    setSkills(prev => {
-      const next = prev.filter(s => s.id !== id);
-      setItem('skills', next);
-      return next;
-    });
-  }, []);
+    setSkills(prev => { const n = prev.filter(s => s.id !== id); setItem('skills', n); scheduleSync(); return n; });
+  }, [scheduleSync]);
 
-  // --- Todos ---
+  // ── Todos ─────────────────────────────────────────────────────────────────
   const addTodo = useCallback((t: Omit<Todo, 'id' | 'createdAt'>) => {
     const newT: Todo = { ...t, id: generateId(), createdAt: new Date().toISOString() };
-    setTodos(prev => {
-      const next = [...prev, newT];
-      setItem('todos', next);
-      return next;
-    });
-  }, []);
+    setTodos(prev => { const n = [...prev, newT]; setItem('todos', n); scheduleSync(); return n; });
+  }, [scheduleSync]);
 
   const toggleTodo = useCallback((id: string) => {
-    setTodos(prev => {
-      const next = prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t);
-      setItem('todos', next);
-      return next;
-    });
-  }, []);
+    setTodos(prev => { const n = prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t); setItem('todos', n); scheduleSync(); return n; });
+  }, [scheduleSync]);
 
   const toggleSubTask = useCallback((todoId: string, subTaskId: string) => {
     setTodos(prev => {
-      const next = prev.map(t => {
+      const n = prev.map(t => {
         if (t.id !== todoId) return t;
-        return {
-          ...t,
-          subTasks: t.subTasks.map(st => st.id === subTaskId ? { ...st, isDone: !st.isDone } : st),
-        };
+        return { ...t, subTasks: t.subTasks.map(st => st.id === subTaskId ? { ...st, isDone: !st.isDone } : st) };
       });
-      setItem('todos', next);
-      return next;
+      setItem('todos', n);
+      scheduleSync();
+      return n;
     });
-  }, []);
+  }, [scheduleSync]);
 
   const removeTodo = useCallback((id: string) => {
-    setTodos(prev => {
-      const next = prev.filter(t => t.id !== id);
-      setItem('todos', next);
-      return next;
-    });
-  }, []);
+    setTodos(prev => { const n = prev.filter(t => t.id !== id); setItem('todos', n); scheduleSync(); return n; });
+  }, [scheduleSync]);
 
   return (
     <AppContext.Provider value={{
       subjects, attendance, assignments, timetable, habits, habitLogs, skills, todos,
+      isDataLoaded,
       addSubject, removeSubject, updateSubject,
       addAttendance,
       addAssignment, updateAssignment, removeAssignment,
@@ -375,6 +306,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addHabit, removeHabit, toggleHabitLog, isHabitDoneToday, getHabitLogs,
       addSkill, updateSkill, removeSkill,
       addTodo, toggleTodo, toggleSubTask, removeTodo,
+      restoreFromBackup, syncNow,
     }}>
       {children}
     </AppContext.Provider>

@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "StudentOS",
-    "slug": "student-os",
+    "name": "StudyUS",
+    "slug": "studyus",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "student-os",
+    "scheme": "studyus",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -14,9 +14,12 @@
       "backgroundColor": "#FFFBF5"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.studyus.app"
     },
-    "android": {},
+    "android": {
+      "package": "com.studyus.app"
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
