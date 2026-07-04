@@ -1,0 +1,417 @@
+## 1. Product Summary
+
+Build **StudentOS**, a mobile-first student life app that combines academic management (assignments, attendance, notes, timetable, exams, GPA) with personal life management (habits, skills, to-dos, goals, journal, finances) in one cohesive product. This is not a generic to-do app — every feature should feel built specifically around the rhythm of a semester: classes, deadlines, attendance thresholds, exam countdowns, and daily student routine.
+
+The app must feel **premium, warm, and motivating** — not like a bare-bones CRUD tool. A student should *want* to open it every morning.
+
+---
+
+## 2. Navigation Structure (current, final)
+
+Bottom tab navigation, 4 tabs — no floating action button.
+
+```
+MAIN APP (Bottom Tab Navigation)
+├── 🏠 Home
+├── 📚 Academic
+├── 🌱 Personal
+└── 👤 Profile
+```
+
+### Academic tab — 4 inner tabs
+```
+Academic
+├── Attendance
+├── Assignments
+├── Classes
+└── Subjects
+```
+Each inner tab ships with its full interactive feature set now; where a feature isn't built yet, end the screen with a small "More features will be added soon" note rather than leaving it blank.
+
+### Personal tab — 3 inner tabs
+```
+Personal
+├── Habits
+├── Skills
+└── To-do
+```
+
+### Profile stack
+```
+Profile
+├── Edit Profile
+├── Semester Manager
+├── App Settings (theme, notifications)
+└── Logout / Delete Account
+```
+
+### Auth flow (entry point, before Main App)
+```
+Splash Screen → Onboarding (3 slides) → Sign Up → Login
+```
+
+---
+
+## 3. Screen-by-Screen Feature Spec
+
+### 3.1 Home (Dashboard)
+
+This is the most important screen — it's the daily landing point. Build these blocks, top to bottom:
+
+1. **Greeting header** — name, today's date, a daily motivational quote that refreshes once per day.
+2. **⭐ Today & Remaining Classes box (combined — see Section 4 for exact logic)**
+3. **Pending Assignments** — next few by deadline, tap to open detail.
+4. **Attendance Health** — quick glance per subject: safe (green) / warning (amber) / critical (red), based on each subject's `minAttendance` threshold.
+5. **Habits due today** — live check-off directly on the dashboard (tapping toggles completion instantly, no navigation required).
+6. **Streak Summary** — current habit + skill streaks at a glance.
+7. **Upcoming Deadlines** — assignments + exams in the next 7 days, merged into one chronological list.
+8. **Weekly Progress Ring** — a circular progress indicator showing % of this week's goals/habits/todos completed.
+
+All dashboard widgets are **live and interactive** — no "go to screen to act" friction for the most common actions (marking a habit done, glancing at attendance, checking off a class as passed).
+
+---
+
+### 3.2 Academic → Subjects
+
+The central subject manager — subjects feed every other Academic tab.
+
+- Text input + "Add" button → adds a subject as a **chip/pill**.
+- Each chip has a **×** to remove it.
+- Live count of total subjects shown ("4 subjects").
+- Subjects created here populate the dropdowns in **Attendance**, **Assignments**, **Classes**, and **Exams** automatically.
+- Each subject (full data model, even if UI is simplified for v1): name, code, semester link, color tag, minimum attendance %, total/attended class counts, credits.
+- Subject Detail screen (when expanded later): Attendance Tab + Assignments Tab nested inside.
+
+### 3.3 Academic → Attendance
+
+- **Mark Attendance form**: subject selector (from Subjects list), date picker, time, and status buttons (Present / Absent / Cancelled).
+- "Save record" action shows a **success toast**.
+- **Quick toggle row**: in the overview list, each subject has an inline one-tap P/A toggle for fast daily marking without opening the form.
+- Auto-calculated attendance % per subject, updated live after every mark.
+- **"Can I bunk?" calculator** — given current attendance and the subject's threshold, show how many classes can safely be missed (or how many must be attended) to stay above the minimum.
+- Warning state when a subject nears its danger zone (e.g. within 3–5% of threshold).
+- Weekly/monthly attendance heatmap view (GitHub-style grid, colored by present/absent/cancelled).
+
+### 3.4 Academic → Assignments
+
+- **"+ New" button** opens an add form: title, subject (from Subjects), description, deadline, priority (High/Medium/Low).
+- **Status pills directly on each card** — tapping cycles or selects between: **Pending → In Progress → Submitted → Missed → Graded.**
+- Grade tracker: once status reaches "Graded," allow logging marks received vs. total marks; show as a fraction/percentage on the card.
+- Overdue assignments visually flagged (e.g. red accent + "Overdue" tag) automatically when `deadline < now` and status isn't Submitted/Graded.
+- Semester-wise history — older semesters' assignments are filterable/archived, not mixed into the active view by default.
+- Push/local notification hooks for deadline reminders (flag as a feature to wire up with the device's notification permission).
+
+### 3.5 Academic → Notes
+
+- **"+ New" button** opens a create form: title, content (rich text/markdown), subject link (optional), tags.
+- Each note card has inline **Edit** and **Delete** actions.
+- Pin important notes to the top.
+- Folder/tag-based filtering by subject or topic.
+- Support image/sketch/file attachments per note.
+- "Quick-note" fast-capture mode (minimal-friction note entry, e.g. a single text field with auto-save, for capturing something mid-lecture).
+- Global search across all notes by title, content, and tags.
+
+### 3.6 Academic → Classes (Timetable)
+
+- **Schedule a class form**: tap to multi-select days of the week, then fill in subject name, start time, end time, room number, teacher name.
+- Weekly recurrence is automatic — set once, it reappears every week on the selected days (no need to re-enter weekly).
+- Display: weekly schedule **grouped by day**.
+- Each class card has a **delete** button.
+- Holiday/exam-day marking that suppresses a normal class slot on that date.
+- This timetable data is the source of truth that powers the Home dashboard's "Today & Remaining Classes" box (see Section 4).
+
+### 3.7 Academic → Exams (planner)
+
+- Add exam: subject, title, date.
+- Countdown timer per exam (days/hours remaining).
+- Auto-generated study schedule based on days remaining until the exam.
+- Syllabus checklist per subject — list topics, mark each as done; show % of syllabus completed.
+- Post-exam: log marks received vs. total.
+
+### 3.8 Academic → Semester & GPA (Profile-adjacent, but logically Academic)
+
+- Add subjects per active semester.
+- GPA/CGPA calculator based on subject credits + grades.
+- Semester archive — past semesters are saved and viewable but excluded from the active dashboard/views by default.
+
+---
+
+### 3.9 Personal → Habits
+
+- **"+ New"** adds a habit: name, icon, category (Health / Study / Social / Mindfulness / etc.), frequency (Daily / Weekly with selectable target days).
+- **Tap the circle** on a habit row to mark done/undone instantly.
+- **7-day dot grid** on each habit card showing recent history at a glance.
+- Full **GitHub-style heatmap** on the Habit Detail screen showing the long-run completion calendar.
+- Streak counter (current) + longest streak record, both stored and displayed.
+- Each habit card has a **delete** action.
+- Optional reflection note per completed habit day (visible in Habit Detail).
+
+### 3.10 Personal → Skills
+
+- Add a skill: name, icon, linked resources (YouTube links, books, courses).
+- **Drag the slider directly on the skill card** to update progress level (0–100) live — no separate edit screen needed for the common case.
+- Inline **edit** and **delete** actions per skill card.
+- Time-spent tracking: manual log entries or a built-in timer, accumulating into `totalTimeSpent`.
+- Milestone badges unlock when a skill hits defined progress thresholds (e.g. 25/50/75/100%).
+
+### 3.11 Personal → To-do
+
+- Add a task with a single quick-add field; supports priority levels and a due time.
+- **Check off tasks directly in the list.**
+- Sub-tasks supported per to-do (expandable checklist within a task).
+- Recurring tasks (daily/weekly pattern).
+- Kept fully separate from academic Assignments — this is for personal daily tasks only.
+
+### 3.12 Personal → Goals *(data model + detail screen ready; list it under Personal once Habits/Skills/To-do ship)*
+
+- Create short-term and long-term goals with a deadline and category.
+- Break each goal into milestones (checklist).
+- Visual progress bar per goal (0–100%, can be manual or computed from milestones).
+- Weekly review prompt: "Did you move closer to your goal?" — a lightweight recurring check-in.
+
+### 3.13 Personal → Journal *(data model + detail screen ready)*
+
+- Daily private journal entry with mood tag (great / good / okay / bad).
+- Optional reflection prompts: "What did I learn today?", "What was hard?"
+- Mood trend graph over time.
+- Strictly private — never synced to any social or shared feature.
+
+### 3.14 Personal → Finance Tracker *(data model + detail screen ready)*
+
+- Log expenses (and optional income) by category: food, transport, books, fun, etc.
+- Set a monthly budget; track `spent` vs. `limit` automatically.
+- Spending breakdown chart by category.
+- Alert/warning state when nearing the monthly budget limit.
+
+> For 3.12–3.14: since the current build phase only lists Habits, Skills, and To-do as the three Personal inner tabs, ship these three as **fully interactive now**. Goals, Journal, and Finance Tracker should be scaffolded in the data layer and have working detail screens, but can launch behind a "Coming soon" entry point in the Personal tab if time-boxing the build — do not silently drop them from the data model.
+
+---
+
+### 3.15 Profile
+
+- **Tap "Edit"** to flip the static profile view into an **editable form** with all fields (name, college, semester, profile picture), then **Save** writes back to the static view.
+- Semester Manager — switch active semester, view archive of past semesters.
+- App Settings — theme (the new premium light theme should be the default; consider an optional dark mode), notification preferences.
+- Logout / Delete Account, with the destructive delete action requiring confirmation.
+- Cross-device sync and offline mode (works without internet, syncs once reconnected) should be treated as platform-level requirements that apply across every module, not just Profile.
+
+---
+
+## 4. ⭐ Dashboard Logic Change — "Today & Remaining Classes" (combined box)
+
+This replaces any earlier separate "Today's Classes" widget. Build **one single box** on the Home dashboard with this exact behavior:
+
+- The box shows **two things together**: the list of today's scheduled classes (from the Classes/Timetable data, filtered to today's day-of-week) **and** a live "Remaining classes" count.
+- **Remaining classes logic**: compare the current device time against each class's `endTime` for today.
+  - A class counts as "remaining" as long as `currentTime <= endTime`.
+  - The instant `currentTime > endTime`, that class is automatically excluded from the remaining count — no user action required.
+  - **Worked example**: today has 4 total classes. The first one ends at 10:00. At 10:01, the box should automatically update "Remaining classes" from 4 → 3, with no refresh or manual interaction needed.
+- This recalculation should happen reactively (e.g. a ticking timer/interval that re-evaluates against current time, or recompute-on-render if the screen is frequently revisited) — the count must update on its own as the day progresses, not just on app relaunch.
+- Visual treatment: show the full list of today's classes (subject, time, room) with a clear visual marker (e.g. dimmed/strikethrough or a "done" check) on classes that have already ended, and highlight the **current** class if `now` falls between its start and end time. The "Remaining: X" number sits prominently at the top or side of the same box — not a separate card.
+- Edge cases to handle: no classes today (show a friendly empty state, e.g. "No classes today 🎉"); all classes finished (show "All done for today" with remaining = 0); a class currently in progress (visually distinct "Now" state).
+
+---
+
+## 5. UI / Design System — "Premium, Student-Friendly"
+
+The current UI is functional but plain and must be redesigned to feel like a premium, well-funded consumer app — closer to **Duolingo / Headspace** in spirit: soft, warm, rounded, encouraging, and a little playful, while staying clean enough for daily academic use.
+
+### 5.1 Visual Direction
+- **Soft pastel palette** as the base — think gentle lavender, mint, peach, butter-yellow, sky-blue — used as section/category accents (e.g. Academic = one pastel family, Personal = another), with a clean off-white/cream background rather than stark white.
+- **Rounded everything**: cards, buttons, chips, inputs, nav bar — generous corner radii (16–24px equivalent) for a soft, friendly feel. Avoid sharp edges anywhere.
+- **Soft shadows / subtle elevation** rather than hard borders — cards should feel like they're gently floating, not boxed in with thin gray lines.
+- **Light textures**: subtle grain, soft gradient washes behind hero sections (like the dashboard header), or a faint blob/organic-shape background motif behind empty states and onboarding — avoid flat, dead-white space everywhere.
+- **Color-coded categories**: each subject, habit category, and module gets a consistent pastel color tag used across chips, progress bars, and icons, so the whole app feels organized by color at a glance.
+- **Friendly empty states and micro-illustrations** (simple, rounded, line-and-fill style) for empty lists, completed days, and onboarding — not just plain text.
+- **Micro-interactions**: satisfying tap feedback on habit check-offs, status pill changes, and slider drags (scale/bounce on tap, smooth color transitions, small celebratory animation on streak milestones or 100% goal completion).
+
+### 5.2 Typography
+- Pair a **rounded, friendly display font** for headings/titles (e.g. something in the style of Poppins, Quicksand, or Nunito) with a **clean, highly legible body font** (e.g. Inter, Manrope, or DM Sans) for body text, lists, and data-heavy screens like attendance and finance.
+- Clear type hierarchy: large warm greeting text on the dashboard, medium-weight section headers, comfortable body size for readability during late-night study sessions.
+- Numbers (attendance %, GPA, streaks, countdowns) should get a slightly bolder/tabular treatment so they're easy to scan.
+
+### 5.3 Color System (suggested starting palette)
+- **Background**: warm off-white / cream (`#FFFBF5`-ish), not pure white.
+- **Primary accent**: soft, friendly mid-saturation color (e.g. a warm coral or periwinkle) for primary buttons and active states.
+- **Category pastels**: distinct soft tones for Academic vs. Personal sections, and per-subject color tags (allow user-assignable colors, as the schema already supports a `color` field on subjects).
+- **Status colors, softened**: success/safe = soft mint/sage green, warning = soft amber, danger/critical = soft coral-red — never harsh, saturated red/green; keep them in the same pastel family as the rest of the UI so alerts feel calm, not alarming.
+- **Dark mode (optional but recommended)**: a warm dark-slate background with the same pastel accents slightly brightened for contrast, rather than a cold pure-black theme.
+
+### 5.4 Component Behavior Notes
+- **Status pills** (Assignments): distinct soft color per state (Pending/In Progress/Submitted/Missed/Graded), tappable/cyclable directly on the card.
+- **Chips** (Subjects): rounded pill shape, color-tagged, with a small × to remove.
+- **Sliders** (Skills): should feel tactile — thick rounded track, a friendly round handle, live numeric readout while dragging.
+- **Heatmaps** (Habits, Attendance): rounded-square grid cells in graduated pastel intensity, not harsh GitHub-green-on-black.
+- **Progress rings/bars** (Weekly Progress, Goals): smooth animated fill, rounded ends, pastel gradient fill rather than a flat single color.
+- **Toasts** (e.g. "Save record" success): soft rounded toast with a small icon, brief and non-intrusive.
+
+### 5.5 Responsiveness Requirements
+- All screens must be fully responsive across phone sizes (small phones ~360dp wide up to large phones/phablets ~430dp+ wide) and both portrait orientations at minimum.
+- Use flexible/relative layouts (flex-based or constraint-based depending on stack) rather than fixed pixel widths — no horizontal overflow or clipped text on smaller devices.
+- Bottom tab bar, dashboard widgets, and card grids should reflow gracefully (e.g. stacking or resizing) rather than breaking on narrower screens.
+- Touch targets (status pills, habit check circles, sliders, toggle buttons) must stay comfortably tappable (≥44pt equivalent) at every supported screen size.
+- Tablet/larger-screen support is a stretch goal, not a requirement, but layouts shouldn't visually break if stretched wider — consider max-width containers on very large screens.
+
+---
+
+## 6. Data Model (Firestore-style schema — authoritative)
+
+Use this as the canonical data structure. It's written in Firestore-style nested collections, but if you choose a different backend, preserve these entities, fields, and relationships.
+
+```
+/users/{userId}
+    - name: string
+    - email: string
+    - college: string
+    - semester: number
+    - profilePic: string (url)
+    - createdAt: timestamp
+    - currentSemesterId: string
+
+/users/{userId}/semesters/{semesterId}
+    - name: string
+    - startDate: timestamp
+    - endDate: timestamp
+    - isActive: boolean
+
+/users/{userId}/subjects/{subjectId}
+    - name: string
+    - code: string
+    - semesterId: string
+    - color: string
+    - minAttendance: number
+    - totalClasses: number
+    - attendedClasses: number
+    - credits: number
+
+/users/{userId}/attendance/{attendanceId}
+    - subjectId: string
+    - date: timestamp
+    - status: string          // "present" | "absent" | "cancelled"
+    - note: string
+
+/users/{userId}/assignments/{assignmentId}
+    - title: string
+    - subjectId: string
+    - description: string
+    - deadline: timestamp
+    - priority: string         // "high" | "medium" | "low"
+    - status: string           // "todo" | "inprogress" | "submitted" | "missed" | "graded"
+    - marks: number
+    - totalMarks: number
+    - createdAt: timestamp
+
+/users/{userId}/notes/{noteId}
+    - title: string
+    - content: string
+    - subjectId: string        // optional
+    - tags: array<string>
+    - isPinned: boolean
+    - attachments: array<string>
+    - createdAt: timestamp
+    - updatedAt: timestamp
+
+/users/{userId}/timetable/{slotId}
+    - subjectId: string
+    - day: string               // "monday" ... "sunday"
+    - startTime: string         // "09:00"
+    - endTime: string           // "10:00"
+    - room: string
+    - teacher: string
+
+/users/{userId}/exams/{examId}
+    - subjectId: string
+    - title: string
+    - date: timestamp
+    - syllabus: array<{topic: string, isDone: boolean}>
+    - marks: number
+    - totalMarks: number
+
+/users/{userId}/habits/{habitId}
+    - name: string
+    - icon: string
+    - category: string          // "health" | "study" | "social" | "mindfulness" ...
+    - frequency: string         // "daily" | "weekly"
+    - targetDays: array<string> // e.g. ["mon","wed","fri"]
+    - currentStreak: number
+    - longestStreak: number
+    - createdAt: timestamp
+
+/users/{userId}/habitLogs/{logId}
+    - habitId: string
+    - date: timestamp
+    - completed: boolean
+    - note: string
+
+/users/{userId}/skills/{skillId}
+    - name: string
+    - icon: string
+    - level: number              // 0-100
+    - targetLevel: number
+    - resources: array<{title: string, url: string}>
+    - totalTimeSpent: number     // minutes
+    - createdAt: timestamp
+
+/users/{userId}/skillLogs/{logId}
+    - skillId: string
+    - date: timestamp
+    - minutesSpent: number
+    - note: string
+
+/users/{userId}/todos/{todoId}
+    - title: string
+    - isCompleted: boolean
+    - priority: string
+    - dueDate: timestamp
+    - subTasks: array<{title: string, isDone: boolean}>
+    - isRecurring: boolean
+    - recurrencePattern: string  // "daily" | "weekly"
+    - createdAt: timestamp
+
+/users/{userId}/goals/{goalId}
+    - title: string
+    - description: string
+    - deadline: timestamp
+    - progress: number            // 0-100
+    - milestones: array<{title: string, isDone: boolean}>
+    - category: string
+
+/users/{userId}/journal/{journalId}
+    - date: timestamp
+    - content: string
+    - mood: string                 // "great" | "good" | "okay" | "bad"
+    - tags: array<string>
+
+/users/{userId}/finances/{financeId}
+    - amount: number
+    - type: string                 // "expense" | "income"
+    - category: string             // "food" | "transport" | "books" ...
+    - note: string
+    - date: timestamp
+
+/users/{userId}/budget/{monthId}
+    - month: string                // "2026-06"
+    - limit: number
+    - spent: number                // auto-calculated
+```
+
+**Note on the timetable schema**: the original schema didn't include `teacher` — it's added here because the Classes screen spec requires capturing teacher name per class. Carry this field through.
+
+---
+
+## 7. Build Priorities (suggested order, since this is going to an AI coding agent)
+
+1. **Auth + navigation shell** — splash, onboarding, sign up/login, 4-tab bottom nav with the Academic/Personal inner-tab structure.
+2. **Design system first** — fonts, color tokens, base components (card, chip, pill, button, slider, toast, heatmap cell) per Section 5, *before* wiring real screens, so every screen inherits the premium look from the start instead of being restyled later.
+3. **Subjects** (everything else's dependency) → **Attendance** → **Assignments** → **Classes/Timetable** → **Notes** → **Exams**.
+4. **Home dashboard**, built last among the core screens since it pulls from Subjects/Attendance/Assignments/Classes/Habits — implement the "Today & Remaining Classes" combined box exactly per Section 4.
+5. **Personal tab**: Habits → Skills → To-do (these three ship fully interactive first).
+6. **Goals / Journal / Finance** — data layer + detail screens; can sit behind a "Coming soon" tile in Personal if time-boxed.
+7. **Profile** — view/edit toggle, Semester Manager, Settings, account actions.
+8. **Cross-cutting**: offline support + sync, push/local notifications for deadlines and attendance warnings, responsive QA pass across small/large phone sizes.
+
+---
+
+## 8. Stack Note
+
+No frontend/backend stack is mandated. Before scaffolding, propose a stack (e.g. React Native + Firebase, Flutter + Firebase, or another combination) that best matches the data model in Section 6 and the offline-sync requirement in Section 3.15, and confirm it before generating the full project structure.

@@ -1,0 +1,3 @@
+- [StyleSheet.create pitfall](stylesheet-create-strings.md) — bare string values (like `'#FF6B6B'`) in StyleSheet.create crash on web with "Invalid value used as weak map key".
+- [useColors typing](usecolors-typing.md) — access `colors.dark` directly in useColors; the `Record<string, typeof colors.light>` cast fails when `colors` also has `radius: number`.
+- [StudentOS auth guard](studentos-auth-guard.md) — auth check lives in `(tabs)/_layout.tsx` via `useAuth()`; redirects unauthenticated users to `/splash` before rendering any tab.
