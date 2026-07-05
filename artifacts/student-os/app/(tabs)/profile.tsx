@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/context/AuthContext';
+import { useApp } from '@/context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -12,6 +13,7 @@ export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user, logout, updateProfile } = useAuth();
+  const { lastSyncedAt, syncNow } = useApp();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user?.name ?? '');
   const [college, setCollege] = useState(user?.college ?? '');
@@ -108,6 +110,21 @@ export default function ProfileScreen() {
             <Text style={[styles.settingLabel, { color: colors.text }]}>App Version</Text>
             <Text style={[styles.settingValue, { color: colors.textMuted }]}>1.0.0</Text>
           </View>
+          <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
+          <TouchableOpacity style={styles.settingRow} onPress={async () => {
+            await syncNow();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }} activeOpacity={0.8}>
+            <View>
+              <Text style={[styles.settingLabel, { color: colors.text }]}>Cloud Backup</Text>
+              <Text style={[styles.syncSubLabel, { color: colors.textMuted }]}>
+                {lastSyncedAt
+                  ? `Last synced ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                  : 'Syncs automatically every 4 s'}
+              </Text>
+            </View>
+            <Text style={[styles.settingValue, { color: colors.primary }]}>Sync now</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -197,4 +214,5 @@ const styles = StyleSheet.create({
   settingValue: { fontSize: 14, fontFamily: 'Inter_400Regular' },
   settingDivider: { height: StyleSheet.hairlineWidth, marginHorizontal: 18 },
   comingSoon: { paddingHorizontal: 18, paddingBottom: 16, fontSize: 13, fontFamily: 'Inter_400Regular', fontStyle: 'italic' },
+  syncSubLabel: { fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 2 },
 });

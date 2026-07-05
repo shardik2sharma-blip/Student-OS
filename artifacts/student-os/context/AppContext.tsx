@@ -50,6 +50,8 @@ type AppContextType = {
   timetable: TimetableSlot[]; habits: Habit[]; habitLogs: HabitLog[];
   skills: Skill[]; todos: Todo[];
   isDataLoaded: boolean;
+  /** ISO timestamp of the last successful cloud sync, or null if never synced this session. */
+  lastSyncedAt: string | null;
 
   addSubject: (s: Omit<Subject, 'id'>) => void;
   removeSubject: (id: string) => void;
@@ -134,6 +136,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   // Refs for debounced cloud sync (avoids stale closures)
   const stateRef = useRef({ subjects, attendance, assignments, timetable, habits, habitLogs, skills, todos });
@@ -181,11 +184,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ]);
       if (!user?.email || !hash) return;
       const s = stateRef.current;
-      await syncToCloud(user.email, hash, {
+      const ok = await syncToCloud(user.email, hash, {
         subjects: s.subjects, attendance: s.attendance, assignments: s.assignments,
         timetable: s.timetable, habits: s.habits, habitLogs: s.habitLogs,
         skills: s.skills, todos: s.todos,
       });
+      if (ok) setLastSyncedAt(new Date().toISOString());
     }, 4000);
   }, []);
 
@@ -197,11 +201,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ]);
     if (!user?.email || !hash) return;
     const s = stateRef.current;
-    await syncToCloud(user.email, hash, {
+    const ok = await syncToCloud(user.email, hash, {
       subjects: s.subjects, attendance: s.attendance, assignments: s.assignments,
       timetable: s.timetable, habits: s.habits, habitLogs: s.habitLogs,
       skills: s.skills, todos: s.todos,
     });
+    if (ok) setLastSyncedAt(new Date().toISOString());
   }, []);
 
   const restoreFromBackup = useCallback(async (payload: BackupPayload) => {
@@ -370,7 +375,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{
       subjects, attendance, assignments, timetable, habits, habitLogs, skills, todos,
-      isDataLoaded,
+      isDataLoaded, lastSyncedAt,
       addSubject, removeSubject, updateSubject,
       addAttendance,
       addAssignment, updateAssignment, removeAssignment,

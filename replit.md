@@ -14,11 +14,22 @@ A premium, warm mobile-first student life app combining academic management (sub
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
 - Mobile: Expo SDK 54, Expo Router (file-based routing)
-- State: React Context + AsyncStorage (offline-first, no backend needed for v1)
+- State: React Context + AsyncStorage (offline-first, cloud backup is best-effort)
 - Fonts: Nunito (headings) + Inter (body) via @expo-google-fonts
 - Icons: @expo/vector-icons (Feather + SF Symbols on iOS 26)
-- API: Express 5 (shared backend, not yet used by mobile)
+- API: Express 5 + express-rate-limit (cloud backup/restore)
 - DB: PostgreSQL + Drizzle ORM (available, not yet used by mobile)
+
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `EXPO_PUBLIC_DOMAIN` | Yes (cloud sync) | The Replit dev/production domain (e.g. `abc.replit.dev`). Used by the mobile app to construct the backup API URL. Set automatically in Replit. |
+| `SESSION_SECRET` | Yes (API server) | Secret key for Express session. Must be a long random string in production. |
+
+## Cloud Backup Model
+
+StudentOS uses a local-first data model. All data lives in AsyncStorage on the device. Cloud backup is best-effort and runs automatically every 4 seconds after any change. The backup file on the server is keyed by `sha256(email:passwordHash)` — no separate auth token is needed; knowing the password is the auth. On sign-in, the latest cloud backup is restored silently in the background.
 
 ## Where things live
 

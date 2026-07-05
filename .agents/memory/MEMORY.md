@@ -2,3 +2,4 @@
 - [useColors typing](usecolors-typing.md) — access `colors.dark` directly in useColors; the `Record<string, typeof colors.light>` cast fails when `colors` also has `radius: number`.
 - [StudentOS auth guard](studentos-auth-guard.md) — auth check lives in `(tabs)/_layout.tsx` via `useAuth()`; redirects unauthenticated users to `/splash` before rendering any tab.
 - [StudentOS cloud backup](studentos-cloud-backup.md) — backup uses credential-derived file key (sha256(email:hash)) so no separate auth needed and cross-user writes are impossible.
+- [StudentOS production config](studentos-prod-config.md) — app name "StudentOS", slug "studentos", bundle ID "com.studentos.app"; rate limiting on both backup routes via express-rate-limit; lastSyncedAt exposed from AppContext.

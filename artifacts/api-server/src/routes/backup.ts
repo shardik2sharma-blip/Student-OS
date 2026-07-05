@@ -11,9 +11,28 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
+import rateLimit from "express-rate-limit";
 
 const router: IRouter = Router();
 const DATA_DIR = join(process.cwd(), "data", "backups");
+
+// ── Rate limiting ─────────────────────────────────────────────────────────────
+// Prevent brute-forcing credential keys.
+const readLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30,                   // max 30 reads per IP per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later." },
+});
+
+const writeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 60,                   // max 60 writes per IP per window (app syncs every 4s)
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later." },
+});
 
 async function ensureDir() {
   await fs.mkdir(DATA_DIR, { recursive: true });
@@ -32,7 +51,7 @@ type BackupFile = {
 };
 
 /** PUT /api/backup — create or overwrite the backup for this credential pair. */
-router.put("/backup", async (req: Request, res: Response) => {
+router.put("/backup", writeLimiter, async (req: Request, res: Response) => {
   const { email, passwordHash, data } = req.body as {
     email?: string;
     passwordHash?: string;
@@ -55,7 +74,7 @@ router.put("/backup", async (req: Request, res: Response) => {
 });
 
 /** GET /api/backup?email=&passwordHash= — retrieve the backup for this credential pair. */
-router.get("/backup", async (req: Request, res: Response) => {
+router.get("/backup", readLimiter, async (req: Request, res: Response) => {
   const { email, passwordHash } = req.query as {
     email?: string;
     passwordHash?: string;
