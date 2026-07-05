@@ -33,11 +33,16 @@ export type Skill = {
   id: string; name: string; icon: string;
   level: number; targetLevel: number; totalTimeSpent: number; createdAt: string;
 };
+export type TodoRepeatType = 'daily' | 'weekly' | 'one-time';
 export type Todo = {
   id: string; title: string; isCompleted: boolean;
   priority: 'high' | 'medium' | 'low'; dueDate?: string;
   subTasks: { id: string; title: string; isDone: boolean }[];
   isRecurring: boolean; createdAt: string;
+  /** Controls automatic reset behaviour */
+  repeatType: TodoRepeatType;
+  /** ISO date string (YYYY-MM-DD) of when this todo was last completed */
+  completedAt?: string;
 };
 
 type AppContextType = {
@@ -82,8 +87,41 @@ type AppContextType = {
 
 const AppContext = createContext<AppContextType | null>(null);
 
-function today(): string {
+function todayStr(): string {
   return new Date().toISOString().split('T')[0];
+}
+
+/** Apply repeat-type reset rules to todos on app load. */
+function applyRepeatReset(todos: Todo[]): { todos: Todo[]; changed: boolean } {
+  const today = todayStr();
+  let changed = false;
+  const result = todos.map(t => {
+    // Only reset completed todos that have a repeat type
+    if (!t.isCompleted) return t;
+    const repeat = t.repeatType ?? 'one-time';
+    if (repeat === 'one-time') return t;
+
+    if (repeat === 'daily') {
+      // Reset if completed on a previous day
+      if (t.completedAt && t.completedAt !== today) {
+        changed = true;
+        return { ...t, isCompleted: false, completedAt: undefined };
+      }
+    } else if (repeat === 'weekly') {
+      // Reset if completed more than 6 days ago
+      if (t.completedAt) {
+        const daysDiff = Math.floor(
+          (new Date(today).getTime() - new Date(t.completedAt).getTime()) / 86400000
+        );
+        if (daysDiff >= 7) {
+          changed = true;
+          return { ...t, isCompleted: false, completedAt: undefined };
+        }
+      }
+    }
+    return t;
+  });
+  return { todos: result, changed };
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -114,8 +152,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         getItem<Skill[]>('skills', []),
         getItem<Todo[]>('todos', []),
       ]);
+
+      // Migrate old todos that may lack repeatType
+      const migratedTodos = td.map(t => ({
+        ...t,
+        repeatType: t.repeatType ?? 'one-time' as TodoRepeatType,
+      }));
+
+      // Apply daily/weekly reset on load
+      const { todos: resetTodos, changed } = applyRepeatReset(migratedTodos);
+      if (changed) {
+        await setItem('todos', resetTodos);
+      }
+
       setSubjects(s); setAttendance(a); setAssignments(asgn); setTimetable(tt);
-      setHabits(h); setHabitLogs(hl); setSkills(sk); setTodos(td);
+      setHabits(h); setHabitLogs(hl); setSkills(sk); setTodos(resetTodos);
       setIsDataLoaded(true);
     })();
   }, []);
@@ -161,7 +212,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const h = payload.habits as Habit[] ?? [];
     const hl = payload.habitLogs as HabitLog[] ?? [];
     const sk = payload.skills as Skill[] ?? [];
-    const td = payload.todos as Todo[] ?? [];
+    const td = (payload.todos as Todo[] ?? []).map(t => ({
+      ...t,
+      repeatType: t.repeatType ?? 'one-time' as TodoRepeatType,
+    }));
 
     await Promise.all([
       setItem('subjects', s), setItem('attendance', a), setItem('assignments', asgn),
@@ -249,7 +303,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [scheduleSync]);
 
   const isHabitDoneToday = useCallback((habitId: string) => {
-    const t = today();
+    const t = todayStr();
     return habitLogs.some(l => l.habitId === habitId && l.date === t && l.completed);
   }, [habitLogs]);
 
@@ -271,12 +325,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── Todos ─────────────────────────────────────────────────────────────────
   const addTodo = useCallback((t: Omit<Todo, 'id' | 'createdAt'>) => {
-    const newT: Todo = { ...t, id: generateId(), createdAt: new Date().toISOString() };
+    const newT: Todo = {
+      ...t,
+      id: generateId(),
+      createdAt: new Date().toISOString(),
+      repeatType: t.repeatType ?? 'one-time',
+    };
     setTodos(prev => { const n = [...prev, newT]; setItem('todos', n); scheduleSync(); return n; });
   }, [scheduleSync]);
 
   const toggleTodo = useCallback((id: string) => {
-    setTodos(prev => { const n = prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t); setItem('todos', n); scheduleSync(); return n; });
+    setTodos(prev => {
+      const n = prev.map(t => {
+        if (t.id !== id) return t;
+        const nowCompleted = !t.isCompleted;
+        return {
+          ...t,
+          isCompleted: nowCompleted,
+          completedAt: nowCompleted ? todayStr() : undefined,
+        };
+      });
+      setItem('todos', n);
+      scheduleSync();
+      return n;
+    });
   }, [scheduleSync]);
 
   const toggleSubTask = useCallback((todoId: string, subTaskId: string) => {

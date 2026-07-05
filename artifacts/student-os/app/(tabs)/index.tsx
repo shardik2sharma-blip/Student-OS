@@ -4,6 +4,7 @@ import {
   Platform, RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/context/AuthContext';
 import { useApp, type Assignment, type Subject } from '@/context/AppContext';
@@ -33,6 +34,14 @@ export default function HomeScreen() {
     const interval = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // Refresh the clock (and re-derive all computed values) whenever this tab gains focus.
+  // This ensures the Home screen instantly shows todos/habits added in other tabs.
+  useFocusEffect(
+    useCallback(() => {
+      setNow(new Date());
+    }, [])
+  );
 
   const todayDay = DAYS[now.getDay()];
   const todaySlots = timetable

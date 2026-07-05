@@ -1,5 +1,6 @@
-import React, { useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Animated } from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 
 interface Props {
@@ -11,10 +12,14 @@ interface Props {
 
 export default function TopTabBar({ tabs, activeIndex, onTabPress, accentColor }: Props) {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const accent = accentColor ?? colors.primary;
 
   return (
-    <View style={[styles.wrapper, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+    <View style={[
+      styles.wrapper,
+      { backgroundColor: colors.background, borderBottomColor: colors.border, paddingTop: insets.top },
+    ]}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -24,7 +29,12 @@ export default function TopTabBar({ tabs, activeIndex, onTabPress, accentColor }
         {tabs.map((tab, i) => {
           const active = i === activeIndex;
           return (
-            <TouchableOpacity key={tab} onPress={() => onTabPress(i)} style={styles.tab} activeOpacity={0.7}>
+            <TouchableOpacity
+              key={tab}
+              onPress={() => onTabPress(i)}
+              style={styles.tab}
+              activeOpacity={0.7}
+            >
               <Text style={[
                 styles.label,
                 { color: active ? accent : colors.textMuted },

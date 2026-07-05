@@ -350,12 +350,13 @@ function TodoTab() {
   const { todos, addTodo, toggleTodo, removeTodo, toggleSubTask } = useApp();
   const [title, setTitle] = useState('');
   const [priority, setPriority] = useState<Todo['priority']>('medium');
+  const [repeatType, setRepeatType] = useState<Todo['repeatType']>('one-time');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [newSubTask, setNewSubTask] = useState('');
 
   const add = () => {
     if (!title.trim()) return;
-    addTodo({ title: title.trim(), isCompleted: false, priority, subTasks: [], isRecurring: false });
+    addTodo({ title: title.trim(), isCompleted: false, priority, repeatType, subTasks: [], isRecurring: repeatType !== 'one-time' });
     setTitle('');
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
@@ -378,6 +379,7 @@ function TodoTab() {
           returnKeyType="done"
           onSubmitEditing={add}
         />
+        {/* Priority row */}
         <View style={styles.row}>
           <View style={styles.statusRow}>
             {(['high', 'medium', 'low'] as const).map(p => (
@@ -389,6 +391,26 @@ function TodoTab() {
           <TouchableOpacity style={[styles.addBtnSmall, { backgroundColor: colors.primary }]} onPress={add} activeOpacity={0.85}>
             <Text style={styles.addBtnText}>Add</Text>
           </TouchableOpacity>
+        </View>
+        {/* Repeat type row */}
+        <View style={styles.repeatRow}>
+          <Text style={[styles.repeatLabel, { color: colors.textMuted }]}>Repeat:</Text>
+          <View style={styles.repeatBtns}>
+            {(['one-time', 'daily', 'weekly'] as const).map(r => {
+              const labels: Record<string, string> = { 'one-time': 'Once', daily: 'Daily', weekly: 'Weekly' };
+              const isActive = repeatType === r;
+              return (
+                <TouchableOpacity
+                  key={r}
+                  onPress={() => setRepeatType(r)}
+                  style={[styles.repeatBtn, { backgroundColor: isActive ? colors.primary + '22' : colors.muted, borderColor: isActive ? colors.primary : 'transparent', borderWidth: 1 }]}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.repeatBtnText, { color: isActive ? colors.primary : colors.textSecondary }]}>{labels[r]}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
       </View>
 
@@ -456,6 +478,13 @@ function TodoItem({ todo, expanded, onToggle, onExpand, onDelete, onSubTaskToggl
           )}
         </TouchableOpacity>
         <View style={[styles.priorityDot, { backgroundColor: pc }]} />
+        {todo.repeatType && todo.repeatType !== 'one-time' && (
+          <View style={[styles.repeatBadge, { backgroundColor: colors.primary + '18' }]}>
+            <Text style={[styles.repeatBadgeText, { color: colors.primary }]}>
+              {todo.repeatType === 'daily' ? '↻D' : '↻W'}
+            </Text>
+          </View>
+        )}
         <TouchableOpacity onPress={onDelete} hitSlop={12}>
           <Text style={[styles.removeX, { color: colors.textMuted }]}>×</Text>
         </TouchableOpacity>
@@ -546,4 +575,11 @@ const styles = StyleSheet.create({
   subCheck: { width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   subTaskText: { fontSize: 13, fontFamily: 'Inter_400Regular', flex: 1 },
   doneLabel: { fontSize: 13, fontFamily: 'Inter_500Medium', marginTop: 8 },
+  repeatRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  repeatLabel: { fontSize: 12, fontFamily: 'Inter_500Medium' },
+  repeatBtns: { flexDirection: 'row', gap: 6, flex: 1 },
+  repeatBtn: { flex: 1, paddingVertical: 7, borderRadius: 10, alignItems: 'center' },
+  repeatBtnText: { fontSize: 12, fontFamily: 'Inter_500Medium' },
+  repeatBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
+  repeatBadgeText: { fontSize: 10, fontFamily: 'Inter_500Medium' },
 });

@@ -6,6 +6,7 @@ import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Redirect, Tabs } from 'expo-router';
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useAuth } from '@/context/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const isIOS = Platform.OS === 'ios';
 
@@ -48,6 +49,10 @@ function NativeTabLayout() {
 
 function ClassicTabLayout() {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
+  // Respect the device's bottom safe area (gesture bar, home indicator)
+  const bottomPad = Math.max(insets.bottom, isIOS ? 16 : 8);
+  const tabBarHeight = bottomPad + 50; // 50 px for icon + label
 
   return (
     <Tabs
@@ -61,8 +66,8 @@ function ClassicTabLayout() {
           borderTopColor: colors.border,
           elevation: 0,
           shadowColor: 'transparent',
-          height: isIOS ? 83 : 64,
-          paddingBottom: isIOS ? 28 : 10,
+          height: tabBarHeight,
+          paddingBottom: bottomPad,
           paddingTop: 6,
         },
         tabBarLabelStyle: {

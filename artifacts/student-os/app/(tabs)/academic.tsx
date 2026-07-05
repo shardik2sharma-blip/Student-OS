@@ -411,6 +411,86 @@ function AssignmentsTab() {
   );
 }
 
+// ─── Time Picker ─────────────────────────────────────────────────────────────
+function TimePicker({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const colors = useColors();
+
+  // Parse 24-hour "HH:MM" → 12-hour display
+  const [hStr, mStr] = value.split(':');
+  const h24 = parseInt(hStr, 10) || 0;
+  const minute = parseInt(mStr, 10) || 0;
+  const isPm = h24 >= 12;
+  const hour12 = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24;
+
+  const emit = (h12: number, pm: boolean, min: number) => {
+    let h = h12 === 12 ? (pm ? 12 : 0) : pm ? h12 + 12 : h12;
+    onChange(`${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`);
+  };
+
+  const adjHour = (dir: 1 | -1) => {
+    let h = hour12 + dir;
+    if (h > 12) h = 1;
+    if (h < 1) h = 12;
+    emit(h, isPm, minute);
+  };
+
+  const adjMinute = (dir: 1 | -1) => {
+    let m = minute + dir * 5;
+    if (m >= 60) m = 0;
+    if (m < 0) m = 55;
+    emit(hour12, isPm, m);
+  };
+
+  const toggleAmPm = (pm: boolean) => emit(hour12, pm, minute);
+
+  return (
+    <View style={{ flex: 1, gap: 6 }}>
+      <Text style={[styles.label, { color: colors.textMuted }]}>{label}</Text>
+      <View style={[styles.timePicker, { backgroundColor: colors.input }]}>
+        {/* Hour */}
+        <View style={styles.timeUnit}>
+          <TouchableOpacity onPress={() => adjHour(1)} hitSlop={8} style={styles.timeArrow}>
+            <Text style={[styles.timeArrowText, { color: colors.academic }]}>▲</Text>
+          </TouchableOpacity>
+          <Text style={[styles.timeDigit, { color: colors.text }]}>{String(hour12).padStart(2, '0')}</Text>
+          <TouchableOpacity onPress={() => adjHour(-1)} hitSlop={8} style={styles.timeArrow}>
+            <Text style={[styles.timeArrowText, { color: colors.academic }]}>▼</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={[styles.timeSep, { color: colors.textSecondary }]}>:</Text>
+
+        {/* Minute */}
+        <View style={styles.timeUnit}>
+          <TouchableOpacity onPress={() => adjMinute(1)} hitSlop={8} style={styles.timeArrow}>
+            <Text style={[styles.timeArrowText, { color: colors.academic }]}>▲</Text>
+          </TouchableOpacity>
+          <Text style={[styles.timeDigit, { color: colors.text }]}>{String(minute).padStart(2, '0')}</Text>
+          <TouchableOpacity onPress={() => adjMinute(-1)} hitSlop={8} style={styles.timeArrow}>
+            <Text style={[styles.timeArrowText, { color: colors.academic }]}>▼</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* AM / PM */}
+        <View style={styles.ampmCol}>
+          <TouchableOpacity
+            onPress={() => toggleAmPm(false)}
+            style={[styles.ampmBtn, { backgroundColor: !isPm ? colors.academic : colors.muted }]}
+          >
+            <Text style={[styles.ampmText, { color: !isPm ? '#fff' : colors.textSecondary }]}>AM</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => toggleAmPm(true)}
+            style={[styles.ampmBtn, { backgroundColor: isPm ? colors.academic : colors.muted }]}
+          >
+            <Text style={[styles.ampmText, { color: isPm ? '#fff' : colors.textSecondary }]}>PM</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 // ─── Classes Tab ─────────────────────────────────────────────────────────────
 function ClassesTab() {
   const colors = useColors();
@@ -513,14 +593,8 @@ function ClassesTab() {
             </View>
           </ScrollView>
           <View style={styles.row}>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={[styles.label, { color: colors.textMuted }]}>Start time</Text>
-              <TextInput style={[styles.inputSm, { backgroundColor: colors.input, color: colors.text }]} value={startTime} onChangeText={setStartTime} placeholder="09:00" placeholderTextColor={colors.textMuted} />
-            </View>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={[styles.label, { color: colors.textMuted }]}>End time</Text>
-              <TextInput style={[styles.inputSm, { backgroundColor: colors.input, color: colors.text }]} value={endTime} onChangeText={setEndTime} placeholder="10:00" placeholderTextColor={colors.textMuted} />
-            </View>
+            <TimePicker label="Start Time" value={startTime} onChange={setStartTime} />
+            <TimePicker label="End Time" value={endTime} onChange={setEndTime} />
           </View>
           <Text style={[styles.label, { color: colors.textMuted }]}>Room</Text>
           <TextInput style={[styles.input, { backgroundColor: colors.input, color: colors.text }]} value={room} onChangeText={setRoom} placeholder="Room 101" placeholderTextColor={colors.textMuted} />
@@ -620,4 +694,18 @@ const styles = StyleSheet.create({
   dayBtn: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20 },
   dayBtnText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
   moreFeatures: { textAlign: 'center', fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 12, fontStyle: 'italic' },
+
+  // Time picker
+  timePicker: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    borderRadius: 14, paddingVertical: 10, paddingHorizontal: 10, gap: 8,
+  },
+  timeUnit: { alignItems: 'center', gap: 2 },
+  timeArrow: { paddingHorizontal: 6, paddingVertical: 2 },
+  timeArrowText: { fontSize: 12, fontFamily: 'Inter_700Bold' },
+  timeDigit: { fontSize: 22, fontFamily: 'Nunito_700Bold', minWidth: 34, textAlign: 'center' },
+  timeSep: { fontSize: 20, fontFamily: 'Nunito_700Bold', marginBottom: 2 },
+  ampmCol: { gap: 4, marginLeft: 4 },
+  ampmBtn: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, alignItems: 'center', minWidth: 36 },
+  ampmText: { fontSize: 11, fontFamily: 'Inter_700Bold' },
 });

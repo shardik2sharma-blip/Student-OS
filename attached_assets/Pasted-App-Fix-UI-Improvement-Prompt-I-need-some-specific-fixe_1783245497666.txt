@@ -1,0 +1,86 @@
+App Fix & UI Improvement Prompt
+
+I need some specific fixes in my app. Please make only these changes and do not modify any other logic, authentication flow, backend, or existing UI structure.
+
+1. Fix Screen Fit & Top Navigation UI
+
+The UI is not fitting properly on all mobile screens.
+
+Issues:
+
+The top horizontal tab bar (Subjects, Class, Assignment, Habit, Skill, etc.) is too close to the top edge.
+On some devices, it overlaps or becomes hard to click.
+Add proper top padding / safe area spacing so all tabs are fully visible and clickable.
+Keep the current design style same.
+
+Reference:
+Check the attached screenshot — the top tabs are touching the top edge.
+
+2. Fix Bottom Navigation Bar Position
+
+The bottom navigation bar is also slightly out of the screen.
+
+Issues:
+
+It is touching the bottom edge too much.
+Add proper bottom safe spacing / padding.
+Make sure it fits correctly on all screen sizes.
+
+Keep the design exactly same.
+
+3. Fix Todo Home Page Live Update
+
+Current issue:
+
+When a new Todo is added, the Home page is not updating automatically.
+
+Required fix:
+
+Sync Todo data properly so Home page updates instantly after adding/editing/completing a Todo.
+4. Add Todo Repeat Type Option
+
+When creating a new Todo, add a new field:
+
+Repeat Type:
+
+Daily
+Weekly
+One Time
+
+Behavior:
+
+Daily → refresh/reset every day automatically.
+Weekly → refresh/reset every week automatically.
+One Time → should stay completed permanently and should not reset.
+
+Only add this feature without affecting old Todo logic.
+
+5. Improve Class Schedule Time Input
+
+Current schedule setup is confusing because users type time manually.
+
+Replace manual time input with:
+
+A proper Time Picker UI
+Support:
+Hour
+Minute
+AM / PM selection
+
+Make schedule creation simpler and cleaner.
+
+Important Instructions
+
+⚠ Very important:
+
+Do not change authentication code.
+Do not change backend logic.
+Do not redesign pages.
+Do not modify components unrelated to these tasks.
+Do not break existing functionality.
+Keep current UI theme and styling intact.
+Make only the requested fixes.
+
+If any part of the current code conflicts with these changes, ask me before modifying it.
+
+Ye prompt kaafi solid hai, isse AI random auth ya UI todne ke chances kam rahenge 😮‍💨
