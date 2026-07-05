@@ -1,0 +1,232 @@
+I want to add a complete smart notification system to my app.
+These notifications should work automatically based on user data and activity.
+
+⚠ Important:
+Only add notification-related logic.
+Do not change existing UI, authentication, backend structure, navigation, or unrelated code.
+
+1. Class Notifications (Timetable Based)
+
+Add automatic notifications for scheduled classes.
+
+Required behavior:
+
+Before each class:
+
+Send reminder notifications:
+30 minutes before
+10 minutes before
+At class start time
+Notification examples:
+“Are you ready for your next class?”
+“Your Data Structures class starts in 30 minutes.”
+“Room 204 | 10:00 AM - 11:00 AM”
+“Don’t be late 😄”
+Include:
+Subject name
+Start time
+End time
+Room number
+Teacher name (if available)
+
+Extra logic:
+
+If class is marked as cancelled → no notification.
+If holiday is marked → no notification.
+2. Assignment Notifications
+
+Add smart assignment notifications.
+
+Trigger conditions:
+New assignment created:
+
+Send:
+
+“New assignment added”
+Show title + due date.
+Pending assignment reminders:
+
+Send reminders:
+
+3 days before due
+1 day before due
+6 hours before due
+1 hour before due
+
+Example:
+
+“Your Physics assignment is due tomorrow.”
+Due today:
+
+Send:
+
+“Assignment deadline is today.”
+Missed deadline:
+
+If deadline passes and status ≠ submitted:
+Send:
+
+“You missed your assignment submission.”
+Status change:
+
+When status updates:
+
+Pending → In Progress
+In Progress → Submitted
+Submitted → Graded
+
+Send update notifications.
+
+3. Attendance Risk Notifications
+
+Build attendance monitoring notifications.
+
+Conditions:
+
+If attendance falls near minimum threshold:
+Send warning.
+
+Example:
+
+“Your Math attendance is getting risky.”
+“Current: 73% | Required: 75%”
+
+If below threshold:
+Send critical warning.
+
+Example:
+
+“Attendance below required limit.”
+“Attend next 4 classes to recover.”
+
+If bunk-safe:
+Optional:
+
+“You can safely miss 2 more classes.”
+4. Habit Notifications
+
+Automatic reminders for habits.
+
+Reminder logic:
+
+Based on habit schedule:
+
+Daily habits → notify at set time.
+Weekly habits → notify on selected days.
+
+Example:
+
+“Time for your workout habit.”
+“Don’t break your streak.”
+Missed habit:
+
+If not completed by end of day:
+Send:
+
+“You missed your Reading habit today.”
+Streak milestones:
+
+Send:
+
+3 day streak
+7 day streak
+30 day streak
+
+Example:
+
+“7 day streak! Keep going 🔥”
+5. Skill Notifications
+
+Skill practice reminders.
+
+Reminder:
+
+Based on custom time:
+Send:
+
+“Time to work on React.”
+“Consistency builds mastery.”
+Missed practice:
+
+If no progress logged:
+Send:
+
+“You missed your skill practice today.”
+Milestone:
+
+When reaching:
+
+25%
+50%
+75%
+100%
+
+Send:
+
+“React skill reached 50%.”
+6. Todo Notifications
+
+Todo reminder system.
+
+Before due:
+
+Notify:
+
+1 hour before
+30 minutes before
+Missed:
+
+If task not completed:
+Send:
+
+“You missed your task.”
+Recurring todos:
+
+Daily/weekly should auto regenerate and notify again based on recurrence.
+
+One-time tasks should not regenerate.
+
+7. Notification Settings Page
+
+Add settings controls:
+
+User can enable/disable:
+
+Class notifications
+Assignment notifications
+Attendance alerts
+Habit reminders
+Skill reminders
+Todo reminders
+
+Optional:
+Custom reminder times.
+
+8. Technical Requirements
+
+Use local push notifications.
+
+Requirements:
+
+Works offline.
+Notifications should persist even if app is closed.
+Automatically reschedule after app restart.
+Use device local storage/database for scheduling.
+Notifications must sync with updates (edit/delete/update).
+
+Example:
+If user changes class timing → old notifications should cancel and new ones should schedule.
+
+9. Important Rules
+
+Do not:
+
+Change UI theme
+Change auth logic
+Change existing database structure unless necessary
+Modify unrelated components
+Break current app functionality
+
+Only add notification system cleanly and modularly.
+
+If any current logic conflicts, ask before changing.

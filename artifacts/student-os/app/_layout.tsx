@@ -21,6 +21,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider } from '@/context/AuthContext';
 import { AppProvider } from '@/context/AppContext';
+import { NotificationProvider } from '@/context/NotificationContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -33,6 +34,7 @@ function RootLayoutNav() {
       <Stack.Screen name="onboarding" />
       <Stack.Screen name="auth" />
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="notification-settings" />
     </Stack>
   );
 }
@@ -70,7 +72,9 @@ export default function RootLayout() {
             <KeyboardProvider>
               <AuthProvider>
                 <AppProvider>
-                  <RootLayoutNav />
+                  <NotificationProvider>
+                    <RootLayoutNav />
+                  </NotificationProvider>
                 </AppProvider>
               </AuthProvider>
             </KeyboardProvider>

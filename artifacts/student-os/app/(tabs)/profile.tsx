@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Switch, Platform,
 } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/context/AuthContext';
 import { useApp } from '@/context/AppContext';
+import { useNotifications } from '@/context/NotificationContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -14,11 +15,11 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, logout, updateProfile } = useAuth();
   const { lastSyncedAt, syncNow } = useApp();
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(user?.name ?? '');
-  const [college, setCollege] = useState(user?.college ?? '');
-  const [semester, setSemester] = useState(user?.semester?.toString() ?? '1');
-  const [notifications, setNotifications] = useState(true);
+  const { settings, updateSetting } = useNotifications();
+  const [editing, setEditing] = React.useState(false);
+  const [name, setName] = React.useState(user?.name ?? '');
+  const [college, setCollege] = React.useState(user?.college ?? '');
+  const [semester, setSemester] = React.useState(user?.semester?.toString() ?? '1');
 
   const save = async () => {
     await updateProfile({ name: name.trim(), college: college.trim(), semester: parseInt(semester, 10) || 1 });
@@ -96,15 +97,20 @@ export default function ProfileScreen() {
       <View style={styles.section}>
         <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Settings</Text>
         <View style={[styles.settingsCard, { backgroundColor: colors.card }]}>
-          <View style={styles.settingRow}>
-            <Text style={[styles.settingLabel, { color: colors.text }]}>Notifications</Text>
+          <TouchableOpacity style={styles.settingRow} onPress={() => router.push('/notification-settings')} activeOpacity={0.8}>
+            <View>
+              <Text style={[styles.settingLabel, { color: colors.text }]}>Notifications</Text>
+              <Text style={[styles.syncSubLabel, { color: colors.textMuted }]}>
+                {settings.masterEnabled ? 'Enabled · Tap to manage' : 'Disabled · Tap to manage'}
+              </Text>
+            </View>
             <Switch
-              value={notifications}
-              onValueChange={setNotifications}
+              value={settings.masterEnabled}
+              onValueChange={v => updateSetting('masterEnabled', v)}
               trackColor={{ false: colors.muted, true: colors.primary + '66' }}
-              thumbColor={notifications ? colors.primary : colors.textMuted}
+              thumbColor={settings.masterEnabled ? colors.primary : colors.textMuted}
             />
-          </View>
+          </TouchableOpacity>
           <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
           <View style={styles.settingRow}>
             <Text style={[styles.settingLabel, { color: colors.text }]}>App Version</Text>
