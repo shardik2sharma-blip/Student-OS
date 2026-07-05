@@ -15,7 +15,12 @@ export default function TopTabBar({ tabs, activeIndex, onTabPress, accentColor }
 
   return (
     <View style={[styles.wrapper, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scroll}
+      >
         {tabs.map((tab, i) => {
           const active = i === activeIndex;
           return (
@@ -40,8 +45,15 @@ const styles = StyleSheet.create({
   wrapper: {
     borderBottomWidth: 1,
   },
+  scrollView: {
+    marginTop: 0,
+    marginBottom: 0,
+  },
   scroll: {
     paddingHorizontal: 12,
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    marginTop: 0,
   },
   tab: {
     paddingHorizontal: 14,
@@ -52,6 +64,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontFamily: 'Inter_500Medium',
+    textAlign: 'left',
   },
   activeLabel: {
     fontFamily: 'Inter_600SemiBold',

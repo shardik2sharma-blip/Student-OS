@@ -541,9 +541,10 @@ function ClassesTab() {
 }
 
 const styles = StyleSheet.create({
-  padded: { padding: 16, gap: 12, paddingBottom: 120 },
+  padded: { padding: 16, gap: 12, paddingBottom: 120, marginTop: 1, marginBottom: 1 },
   card: {
-    borderRadius: 20, padding: 20, gap: 12,
+    borderRadius: 20, padding: 20, gap: 12, justifyContent: 'flex-start',
+    marginTop: 5, marginBottom: 1,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3,
   },
   cardTitle: { fontSize: 17, fontFamily: 'Nunito_700Bold' },
